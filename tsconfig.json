@@ -18,9 +18,13 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
-    "jsx": "react-jsx"
+    "jsx": "react-jsx",
+    "types": [
+      "vite/client",
+      "vitest/globals"
+    ]
   },
   "include": [
-    "tellsdog-vite/src"
+    "src"
   ]
 }
