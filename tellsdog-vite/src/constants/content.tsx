@@ -57,5 +57,15 @@ export const transformationPreviews = {
     mixed: "The phenomenon of quantum superposition constitutes a fundamental characteristic of quantum mechanical systems...",
     email: "Dear colleagues, I am writing to address our third-quarter strategic objectives...",
     report: "The architectural transition to microservices demonstrated a 34% optimization in deployment efficiency..."
+  },
+  story: {
+    mixed: "Picture this: Sarah, our lead quantum physicist, walks into the lab with her morning coffee...",
+    email: "It was 8 AM when Jake opened his inbox. The subject line made his coffee go cold: 'Q3 Review Today'...",
+    report: "The team gathered around the deployment dashboard, hearts racing. After months of refactoring..."
+  },
+  actionable: {
+    mixed: "Step 1: Open your quantum computing simulator. Step 2: Create a qubit in superposition state...",
+    email: "Action items for Q3: 1) Schedule department sync by Friday 2) Review competency matrices...",
+    report: "Implementation roadmap: Week 1: Containerize services. Week 2: Set up orchestration..."
   }
 };

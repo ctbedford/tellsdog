@@ -8,6 +8,14 @@ import SocialProof from './components/SocialProof';
 import { BubblePosition, SliderValues, TransformHistory } from './types';
 import { transformations } from './constants/content';
 
+export interface TransformChain {
+  id: number;
+  steps: {
+    text: string;
+    transformType?: string;
+  }[];
+}
+
 export default function TellsdogLanding() {
   const [selectedText, setSelectedText] = useState('');
   const [showBubbles, setShowBubbles] = useState(false);
@@ -21,6 +29,11 @@ export default function TellsdogLanding() {
   const [transformHistory, setTransformHistory] = useState<TransformHistory[]>([]);
   const [showSuccess, setShowSuccess] = useState(false);
   const demoTextRef = useRef<HTMLDivElement>(null);
+  const transformedTextRef = useRef<HTMLDivElement>(null);
+  
+  // New state for transformation chains
+  const [currentChain, setCurrentChain] = useState<TransformChain>({ id: Date.now(), steps: [] });
+  const [isIterativeMode, setIsIterativeMode] = useState(false);
 
   // Semantic dimensions
   const [sliderValues, setSliderValues] = useState<SliderValues>({
@@ -35,7 +48,13 @@ export default function TellsdogLanding() {
       const selection = window.getSelection();
       const text = selection?.toString().trim() || '';
       
-      if (text && text.length > 10 && demoTextRef.current && selection?.anchorNode && demoTextRef.current.contains(selection.anchorNode)) {
+      // Check if selection is from either the demo text or transformed text areas
+      const isFromDemo = demoTextRef.current && selection?.anchorNode && 
+                        demoTextRef.current.contains(selection.anchorNode);
+      const isFromTransformed = transformedTextRef.current && selection?.anchorNode && 
+                               transformedTextRef.current.contains(selection.anchorNode);
+      
+      if (text && text.length > 10 && (isFromDemo || isFromTransformed) && !isTransforming) {
         setSelectedText(text);
         
         const range = selection.getRangeAt(0);
@@ -47,9 +66,18 @@ export default function TellsdogLanding() {
         });
         
         setShowBubbles(true);
+        
+        // If selecting from transformed text, we're in iterative mode
+        if (isFromTransformed) {
+          setIsIterativeMode(true);
+        } else {
+          setIsIterativeMode(false);
+        }
       } else if (!showSliders) {
         setShowBubbles(false);
-        setSelectedText('');
+        if (!activeDemo && !isIterativeMode) {
+          setSelectedText('');
+        }
       }
     };
 
@@ -60,11 +88,28 @@ export default function TellsdogLanding() {
       document.removeEventListener('mouseup', handleSelection);
       document.removeEventListener('touchend', handleSelection);
     };
-  }, [showSliders]);
+  }, [showSliders, activeDemo, isTransforming, isIterativeMode]);
 
   const handleTransform = async (type: string) => {
+    setShowBubbles(false);
     setIsTransforming(true);
     setActiveDemo(type);
+    
+    // Create new chain if starting fresh, or add to existing chain
+    if (!isIterativeMode || currentChain.steps.length === 0) {
+      setCurrentChain({
+        id: Date.now(),
+        steps: [
+          { text: selectedText },
+          { text: '', transformType: type }
+        ]
+      });
+    } else {
+      setCurrentChain(prev => ({
+        ...prev,
+        steps: [...prev.steps, { text: '', transformType: type }]
+      }));
+    }
     
     // Add to history
     const newTransform: TransformHistory = {
@@ -79,6 +124,14 @@ export default function TellsdogLanding() {
     
     // Simulate API call with typing effect
     let finalText = transformations[type as keyof typeof transformations]?.transformed || "Transformed text...";
+    
+    // If in iterative mode, apply a contextual transformation
+    if (isIterativeMode) {
+      // This is where you'd call an API to transform the selected portion
+      // For demo, we'll use predefined transformations with slight modifications
+      finalText = `[${type.toUpperCase()}] ${finalText}`;
+    }
+    
     let currentText = '';
     let index = 0;
     
@@ -90,7 +143,13 @@ export default function TellsdogLanding() {
         setTimeout(typeText, 20);
       } else {
         setIsTransforming(false);
-        setShowBubbles(false);
+        // Update the chain with the final text
+        setCurrentChain(prev => ({
+          ...prev,
+          steps: prev.steps.map((step, idx) => 
+            idx === prev.steps.length - 1 ? { ...step, text: finalText } : step
+          )
+        }));
       }
     };
     
@@ -98,6 +157,8 @@ export default function TellsdogLanding() {
   };
 
   const handleSliderTransform = () => {
+    setShowSliders(false);
+    setShowBubbles(false);
     setIsTransforming(true);
     
     setTimeout(() => {
@@ -109,8 +170,33 @@ export default function TellsdogLanding() {
         
       setTransformedText(formalityText);
       setIsTransforming(false);
-      setShowSliders(false);
-      setShowBubbles(false);
+      setActiveDemo('custom');
+      
+      // Update chain for custom transformation
+      if (!isIterativeMode || currentChain.steps.length === 0) {
+        setCurrentChain({
+          id: Date.now(),
+          steps: [
+            { text: selectedText },
+            { text: formalityText, transformType: 'custom' }
+          ]
+        });
+      } else {
+        setCurrentChain(prev => ({
+          ...prev,
+          steps: [...prev.steps, { text: formalityText, transformType: 'custom' }]
+        }));
+      }
+      
+      const newTransform: TransformHistory = {
+        id: Date.now(),
+        type: 'custom',
+        original: selectedText,
+        transformed: formalityText,
+        timestamp: new Date()
+      };
+      
+      setTransformHistory(prev => [newTransform, ...prev].slice(0, 5));
     }, 800);
   };
 
@@ -119,6 +205,17 @@ export default function TellsdogLanding() {
     setTransformedText('');
     setSelectedText('');
     setShowSliders(false);
+    setShowBubbles(false);
+    setIsIterativeMode(false);
+    setCurrentChain({ id: Date.now(), steps: [] });
+    window.getSelection()?.removeAllRanges();
+  };
+
+  const replayTransformation = (transform: TransformHistory) => {
+    setSelectedText(transform.original);
+    setTransformedText(transform.transformed);
+    setActiveDemo(transform.type);
+    setShowBubbles(false);
     window.getSelection()?.removeAllRanges();
   };
 
@@ -139,6 +236,9 @@ export default function TellsdogLanding() {
         transformHistory={transformHistory}
         showSuccess={showSuccess}
         demoTextRef={demoTextRef}
+        transformedTextRef={transformedTextRef}
+        currentChain={currentChain}
+        isIterativeMode={isIterativeMode}
         onContentTypeChange={(type) => {
           setContentType(type);
           resetDemo();
@@ -146,6 +246,7 @@ export default function TellsdogLanding() {
         onResetDemo={resetDemo}
         onShareDemo={shareDemo}
         onClearHistory={() => setTransformHistory([])}
+        onReplayTransform={replayTransformation}
       />
 
       <TransformBubbles
@@ -154,9 +255,13 @@ export default function TellsdogLanding() {
         isTransforming={isTransforming}
         hoveredTransform={hoveredTransform}
         contentType={contentType}
+        isIterativeMode={isIterativeMode}
         onTransform={handleTransform}
         onHoverTransform={setHoveredTransform}
-        onShowSliders={() => setShowSliders(true)}
+        onShowSliders={() => {
+          setShowBubbles(false);
+          setShowSliders(true);
+        }}
       />
 
       <SemanticSliders
@@ -237,6 +342,11 @@ export default function TellsdogLanding() {
           cursor: pointer;
           border-radius: 50%;
           border: none;
+        }
+        
+        .select-text-transformed {
+          user-select: text;
+          cursor: text;
         }
       `}</style>
     </div>

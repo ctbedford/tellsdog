@@ -33,5 +33,13 @@ export interface BubblePosition {
   y: number;
 }
 
+export interface TransformChain {
+  id: number;
+  steps: {
+    text: string;
+    transformType?: string;
+  }[];
+}
+
 export type ContentType = 'mixed' | 'email' | 'report';
 export type TransformationType = 'simplify' | 'formalize' | 'story' | 'actionable';
